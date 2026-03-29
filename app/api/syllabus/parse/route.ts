@@ -4,6 +4,7 @@ import { extractCourseworkWithGroq } from "@/lib/groq-syllabus";
 import { parseDocumentToMarkdown } from "@/lib/llamaparse";
 import { buildWarnings } from "@/lib/syllabus-validate";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isCompressed, decompressStream } from "@/lib/compression";
 
 export const maxDuration = 180;
 
@@ -60,9 +61,21 @@ export async function POST(request: Request) {
     );
   }
 
+  let currentRequest = request;
+  if (isCompressed(request) && request.body) {
+    const decompressedBody = decompressStream(request.body);
+    currentRequest = new Request(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body: decompressedBody,
+      // @ts-expect-error - duplex is required for stream bodies in some Node environments
+      duplex: "half",
+    });
+  }
+
   let form: FormData;
   try {
-    form = await request.formData();
+    form = await currentRequest.formData();
   } catch {
     return NextResponse.json({ error: "Invalid form data." }, { status: 400 });
   }

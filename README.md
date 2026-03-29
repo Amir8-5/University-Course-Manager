@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Course Manager
+
+A modern, responsive Next.js web application for college and university students to track their courses, assignments, tests, and overall GPA. This project features an automatic syllabus parser that leverages LLMs to instantly convert syllabus PDFs and text into structured grading rows.
+
+## Features
+
+- **Dashboard & GPA Visualization**: Clean, purple-accented aesthetics with an SVG donut chart for quick GPA visualization. Follows a streamlined 0.5/1.0 credit system.
+- **Syllabus Parser**: Upload your syllabus and let **LlamaParse** and **Groq** automatically extract your grading policy and weighting—formatted accurately to two decimal places.
+- **Smart Client-Side PDF Cropping**: Rather than paying for and sending 50 pages of university policies, the app uses `pdf-lib` inside the browser to automatically crop syllabus PDFs to the first few relevant pages.
+- **Payload Compression**: Say goodbye to `403 Payload Too Large` errors! The app intercepts network fetching and uses the native `CompressionStream` to safely gzip huge syllabus documents before sending them to the backend API.
+- **Rate Limiting & Admin Fallback**: Enforces a strict 1-upload-per-day rate limit per IP to prevent LLM abuse, with a "lock" button allowing the injection of an `ADMIN_TOKEN` to perfectly bypass it for testing.
+- **Persistent Local Data**: Your classes, grades, and progress are saved locally in the browser via `zustand`. No accounts required!
+
+## Environment Variables
+
+To run this application locally with the syllabus parsing features, you must create a `.env.local` file in the root of the project with the following keys:
+
+```ini
+# Core LLM extraction
+GROQ_API_KEY=gsk_your_groq_api_key_here
+GROQ_MODEL=llama-3.3-70b-versatile
+
+# PDF and File extraction
+LLAMA_CLOUD_API_KEY=llx-your_llamacloud_api_key_here
+
+# Used to bypass the 1-per-day upload limit in the UI (Lock Icon)
+ADMIN_TOKEN=your_secret_admin_token
+```
 
 ## Getting Started
 
-First, run the development server:
+First, install the dependencies:
+
+```bash
+npm install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Framework**: [Next.js](https://nextjs.org/) (App Router)
+- **UI & Styling**: [React 19](https://react.dev/), [Tailwind CSS v4](https://tailwindcss.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **State Management**: [Zustand](https://zustand-demo.pmnd.rs/)
+- **LLM Integrations**: [Groq SDK](https://console.groq.com/), [LlamaParse](https://cloud.llamaindex.ai/)
+- **Utilities**: `pdf-lib` (Client-side PDF truncation)

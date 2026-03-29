@@ -62,7 +62,7 @@ export function GradeItemRow({ courseId, item }: Props) {
             type="number"
             min={0}
             max={100}
-            step={0.1}
+            step={0.01}
             value={item.score === null ? "" : item.score}
             onChange={(e) => {
               const v = e.target.value;
@@ -75,7 +75,7 @@ export function GradeItemRow({ courseId, item }: Props) {
           />
         ) : (
           <span className="tabular-nums text-foreground">
-            {item.score !== null ? `${item.score}%` : "—"}
+            {item.score !== null ? `${item.score.toFixed(2)}%` : "—"}
           </span>
         )}
       </td>
@@ -85,7 +85,7 @@ export function GradeItemRow({ courseId, item }: Props) {
             type="number"
             min={0}
             max={100}
-            step={0.5}
+            step={0.01}
             value={item.weight}
             onChange={(e) =>
               updateGradeItem(courseId, item.id, { weight: Number(e.target.value) })
@@ -94,7 +94,7 @@ export function GradeItemRow({ courseId, item }: Props) {
             className="w-full max-w-[6rem] rounded-md border border-input bg-background px-2 py-1.5 text-sm tabular-nums text-foreground outline-none ring-ring focus:ring-2 transition-all"
           />
         ) : (
-          <span className="tabular-nums text-foreground">{item.weight}%</span>
+          <span className="tabular-nums text-foreground">{item.weight.toFixed(2)}%</span>
         )}
       </td>
       <td className="py-4 pl-2 pr-4 align-middle text-right">

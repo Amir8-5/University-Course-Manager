@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { SyllabusParseItem } from "@/lib/syllabus-api";
 import type { GradeItemKind } from "@/lib/types";
 import { useCoursesStore } from "@/lib/store";
+import { fetchWithCompression } from "@/lib/http";
+import { Lock } from "lucide-react";
 
 type Props = {
   courseId: string;
@@ -27,6 +29,7 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
   const [preview, setPreview] = useState<SyllabusParseItem[] | null>(null);
   const [warnings, setWarnings] = useState<string[] | undefined>(undefined);
   const [mode, setMode] = useState<"append" | "replace">("append");
+  const [maxPages, setMaxPages] = useState<number>(10);
 
   const reset = () => {
     setPastedText("");
@@ -61,7 +64,35 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
     try {
       const form = new FormData();
       if (tab === "file" && file) {
-        form.append("file", file);
+        let fileToUpload = file;
+        if (file.name.toLowerCase().endsWith(".pdf")) {
+          try {
+            const { PDFDocument } = await import("pdf-lib");
+            const arrayBuffer = await file.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+            const pageCount = pdfDoc.getPageCount();
+
+            if (maxPages > pageCount) {
+              setLoading(false);
+              setError(`Chosen max pages (${maxPages}) exceeds the total document pages (${pageCount}).`);
+              return;
+            }
+
+            if (pageCount > maxPages) {
+              const newPdf = await PDFDocument.create();
+              const pagesToCopy = Array.from({ length: maxPages }, (_, i) => i);
+              const copiedPages = await newPdf.copyPages(pdfDoc, pagesToCopy);
+              copiedPages.forEach((page) => newPdf.addPage(page));
+              
+              const pdfBytes = await newPdf.save();
+              const pdfBlob = new Blob([pdfBytes as any], { type: "application/pdf" });
+              fileToUpload = new File([pdfBlob], file.name, { type: "application/pdf" });
+            }
+          } catch (e) {
+            console.error("Failed to process PDF locally. Falling back to original file.", e);
+          }
+        }
+        form.append("file", fileToUpload);
       } else if (tab === "text" && pastedText.trim()) {
         form.append("text", pastedText.trim());
       } else {
@@ -76,7 +107,7 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
         headers["x-admin-token"] = token;
       }
 
-      const res = await fetch("/api/syllabus/parse", {
+      const res = await fetchWithCompression("/api/syllabus/parse", {
         method: "POST",
         headers,
         body: form,
@@ -102,8 +133,12 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
       setPreview(data.items);
       setWarnings(data.warnings);
       localStorage.setItem("last-syllabus-parse", Date.now().toString());
-    } catch {
-      setError("Network error.");
+    } catch (e) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("Network error.");
+      }
     } finally {
       setLoading(false);
     }
@@ -160,7 +195,7 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
               </h2>
               <button
                 type="button"
-                className="text-muted-foreground hover:text-foreground opacity-20 hover:opacity-100 transition-opacity p-1"
+                className="relative z-10 p-2 text-muted-foreground hover:text-foreground opacity-30 hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center rounded-md hover:bg-muted"
                 onClick={() => {
                   const token = window.prompt("Enter admin token to bypass limits:");
                   if (token !== null) {
@@ -175,13 +210,11 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
                 }}
                 title="Admin Access"
               >
-                🔒
+                <Lock className="w-4 h-4" />
               </button>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Paste text (Groq only) or upload a file: LlamaParse turns it into markdown, then
-              Groq extracts graded items. Set <code className="text-xs">GROQ_API_KEY</code> on the
-              server; file uploads also need <code className="text-xs">LLAMA_CLOUD_API_KEY</code>.
+              
             </p>
 
             <div className="mt-4 inline-flex rounded-lg border border-border bg-muted/30 p-0.5 text-sm">
@@ -210,22 +243,47 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
                 Syllabus text
                 <textarea
                   value={pastedText}
-                  onChange={(e) => setPastedText(e.target.value)}
+                  onChange={(e) => {
+                    setPastedText(e.target.value);
+                    setError(null);
+                  }}
                   rows={8}
                   className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none ring-ring focus:ring-2"
                   placeholder="Paste the grading policy section…"
                 />
               </label>
             ) : (
-              <label className="mt-4 block text-sm font-medium text-foreground">
-                File (PDF, Word, PowerPoint, HTML, text, or images)
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.txt,.ppt,.pptx,.html,.htm,.png,.jpg,.jpeg,.gif,.webp"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="mt-1 block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-muted file:px-3 file:py-1.5"
-                />
-              </label>
+              <div className="mt-4 space-y-4">
+                <label className="block text-sm font-medium text-foreground">
+                  File (PDF, Word, PowerPoint, HTML, text, or images)
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt,.ppt,.pptx,.html,.htm,.png,.jpg,.jpeg,.gif,.webp"
+                    onChange={(e) => {
+                      setFile(e.target.files?.[0] ?? null);
+                      setError(null);
+                    }}
+                    className="mt-1 block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-muted file:px-3 file:py-1.5"
+                  />
+                </label>
+                <label className="block text-sm font-medium text-foreground">
+                  Max pages to scan (PDFs only)
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={maxPages}
+                    onChange={(e) => {
+                      setMaxPages(parseInt(e.target.value) || 10);
+                      setError(null);
+                    }}
+                    className="mt-1 block w-24 rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Choose how many pages are uploaded to keep the size small.
+                  </p>
+                </label>
+              </div>
             )}
 
             {error ? (
@@ -284,7 +342,7 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
                           <td className="px-3 py-2 text-foreground">{row.name}</td>
                           <td className="px-3 py-2 text-foreground">{KIND_LABEL[row.kind]}</td>
                           <td className="px-3 py-2 tabular-nums text-foreground">
-                            {row.weightPercent.toFixed(1)}
+                            {row.weightPercent.toFixed(2)}
                           </td>
                         </tr>
                       ))}
