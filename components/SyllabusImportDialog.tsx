@@ -6,7 +6,9 @@ import type { GradeItemKind } from "@/lib/types";
 import { useCoursesStore } from "@/lib/store";
 import { fetchWithCompression } from "@/lib/http";
 import { Lock } from "lucide-react";
-import { PdfPageSelector } from "./PdfPageSelector";
+import dynamic from "next/dynamic";
+
+const PdfPageSelector = dynamic(() => import("./PdfPageSelector").then((m) => m.PdfPageSelector), { ssr: false });
 
 type Props = {
   courseId: string;
@@ -289,7 +291,7 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
                       setError(null);
                       setSelectedPages([]);
                     }}
-                    className="mt-1 block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-muted file:px-3 file:py-1.5"
+                    className="mt-2 block w-full cursor-pointer text-base font-bold text-foreground file:mr-4 file:cursor-pointer file:border-3 file:border-solid file:border-foreground file:bg-card file:px-4 file:py-2 file:text-base file:font-black file:uppercase file:text-foreground hover:file:translate-x-[2px] hover:file:translate-y-[2px] file:transition-all hover:file:bg-accent hover:file:text-accent-foreground"
                   />
                 </label>
                 {file && file.name.toLowerCase().endsWith(".pdf") && (

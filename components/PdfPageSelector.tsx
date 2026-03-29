@@ -58,11 +58,11 @@ export function PdfPageSelector({ file, selectedPages, onChange, maxSelectablePa
     <div className="mt-2 rounded-md border border-border bg-card p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-foreground">Select pages</h3>
-        <div className="space-x-3">
+        <div className="flex gap-3">
             <button 
               type="button" 
               onClick={selectAll}
-              className="text-xs font-medium text-primary hover:underline hover:opacity-80 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-black uppercase border border-foreground bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0px_0px_var(--foreground)]"
               disabled={numPages === null}
             >
               Select All
@@ -70,7 +70,7 @@ export function PdfPageSelector({ file, selectedPages, onChange, maxSelectablePa
             <button 
               type="button" 
               onClick={() => onChange([])}
-              className="text-xs font-medium text-muted-foreground hover:underline hover:opacity-80 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-black uppercase border border-foreground bg-card text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0px_0px_var(--foreground)]"
               disabled={selectedPages.length === 0}
             >
               Clear
@@ -150,7 +150,7 @@ export function PdfPageSelector({ file, selectedPages, onChange, maxSelectablePa
                <button
                  type="button"
                  onClick={() => setExpandedPage(null)}
-                 className="rounded-md p-1.5 text-xs font-medium border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                 className="px-4 py-2 text-sm font-black uppercase border border-foreground bg-card text-foreground hover:bg-accent hover:text-accent-foreground"
                >
                  Close
                </button>
