@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Course } from "@/lib/types";
+import type { GradeRow } from "@/lib/gpa-scales";
 import { getCourseGradePercent, percentToGpaPoints } from "@/lib/grades";
 
 /** Distinct colors for in-progress courses only */
@@ -22,9 +23,11 @@ export const COMPLETED_GPA_COLOR = "#9ca3af";
 type Props = {
   courses: Course[];
   gpa: number | null;
+  maxGpa?: number;
+  grades?: GradeRow[];
 };
 
-export function GpaChart({ courses, gpa }: Props) {
+export function GpaChart({ courses, gpa, maxGpa = 4.0, grades }: Props) {
   const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
 
   const contributions = useMemo(() => {
@@ -46,7 +49,7 @@ export function GpaChart({ courses, gpa }: Props) {
     let inProgressIndex = 0;
     return validCourses.map((c) => {
       const avg = getCourseGradePercent(c) as number;
-      const pts = percentToGpaPoints(avg);
+      const pts = percentToGpaPoints(avg, grades);
       const contribution = (pts * c.creditHours) / totalCredits;
       const chartColor =
         c.status === "completed"
@@ -92,7 +95,7 @@ export function GpaChart({ courses, gpa }: Props) {
           />
 
           {contributions.map((c) => {
-            const fraction = c.contribution / 4.0;
+            const fraction = c.contribution / maxGpa;
             const dashLength = fraction * circumference;
             const dashGap = circumference - dashLength;
             const offset = currentOffset;

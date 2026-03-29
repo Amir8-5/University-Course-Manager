@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import type { Course } from "@/lib/types";
 import { useCoursesStore } from "@/lib/store";
+import { useGpaScaleStore } from "@/lib/gpa-store";
 
 function migrateLegacyCourses(courses: Course[]): Course[] {
   return courses.map((c) => {
@@ -31,6 +32,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const run = async () => {
       await Promise.resolve(useCoursesStore.persist.rehydrate());
+      await Promise.resolve(useGpaScaleStore.persist.rehydrate());
       const courses = useCoursesStore.getState().courses;
       const migrated = migrateLegacyCourses(courses);
       const changed =

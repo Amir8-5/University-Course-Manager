@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Course } from "@/lib/types";
 import { getCourseGradePercent, percentToLetterGrade } from "@/lib/grades";
+import { useGpaScaleStore } from "@/lib/gpa-store";
 import { Trash2 } from "lucide-react";
 import { useCoursesStore } from "@/lib/store";
 
@@ -15,10 +16,11 @@ export function CourseCard({
   color?: string;
 }) {
   const avg = getCourseGradePercent(course);
+  const grades = useGpaScaleStore((s) => s.grades);
   const avgLabel =
     avg === null
       ? "—"
-      : `${avg.toFixed(2)}% (${percentToLetterGrade(avg)})`;
+      : `${avg.toFixed(2)}% (${percentToLetterGrade(avg, grades)})`;
   const removeCourse = useCoursesStore((s) => s.removeCourse);
   const dotColor =
     course.status === "completed" ? COMPLETED_COLOR : color ?? "#2563eb";
@@ -33,7 +35,7 @@ export function CourseCard({
   return (
     <Link
       href={`/course/${course.id}`}
-      className="group flex flex-col justify-between rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm transition-colors hover:border-primary/40 hover:bg-accent/50"
+      className="group flex flex-col justify-between border-[3px] border-border bg-card p-6 text-card-foreground shadow-[4px_4px_0px_0px_var(--foreground)] transition-all hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[8px_8px_0px_0px_var(--foreground)] hover:bg-accent"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-start gap-2 pr-4">
@@ -68,7 +70,7 @@ export function CourseCard({
         <button
           type="button"
           onClick={handleDelete}
-          className="-mb-2 -mr-2 hidden rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive group-hover:block"
+          className="-mb-2 -mr-2 hidden border-[3px] border-transparent p-2 font-black uppercase text-foreground transition-all hover:border-foreground hover:bg-destructive hover:text-destructive-foreground hover:shadow-[2px_2px_0px_0px_var(--foreground)] group-hover:block"
           aria-label="Delete course"
         >
           <Trash2 className="h-5 w-5" />
