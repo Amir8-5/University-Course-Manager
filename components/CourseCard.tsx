@@ -18,7 +18,7 @@ export function CourseCard({
   const avgLabel =
     avg === null
       ? "—"
-      : `${avg.toFixed(1)}% (${percentToLetterGrade(avg)})`;
+      : `${avg.toFixed(2)}% (${percentToLetterGrade(avg)})`;
   const removeCourse = useCoursesStore((s) => s.removeCourse);
   const dotColor =
     course.status === "completed" ? COMPLETED_COLOR : color ?? "#2563eb";

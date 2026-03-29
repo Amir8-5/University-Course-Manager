@@ -8,7 +8,7 @@ const MAX_SYLLABUS_CHARS = 17_500;
 
 const GROQ_JSON_INSTRUCTION = `You must respond with a single JSON object only (no markdown code fences), with exactly this shape:
 {"coursework":[{"name":"string","category":"assignment"|"test"|"other","weight":number}]}
-Use "weight" as the percentage of the final grade (0-100).`;
+Use "weight" as the percentage of the final grade (0-100), formatted to two decimal places (e.g., 5.25).`;
 
 export async function extractCourseworkWithGroq(markdown: string): Promise<SyllabusParseItem[]> {
   const apiKey = process.env.GROQ_API_KEY;

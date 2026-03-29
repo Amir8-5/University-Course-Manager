@@ -132,7 +132,7 @@ export function CourseDetail({ courseId }: Props) {
               type="number"
               min={0}
               max={100}
-              step={0.1}
+              step={0.01}
               value={course.finalPercent === null ? "" : course.finalPercent}
               onChange={(e) => {
                 const v = e.target.value;
@@ -236,12 +236,12 @@ export function CourseDetail({ courseId }: Props) {
             {course.items.length > 0 ? (
               <p className="mt-1 text-muted-foreground">
                 Graded rows: {gradedItems.length} · Sum of their weights:{" "}
-                <span className="tabular-nums">{sumGradedWeights.toFixed(1)}%</span>
+                <span className="tabular-nums">{sumGradedWeights.toFixed(2)}%</span>
                 {course.items.some((i) => i.weight > 0) ? (
                   <>
                     {" "}
                     · All rows weight total:{" "}
-                    <span className="tabular-nums">{totalItemWeights.toFixed(1)}%</span>
+                    <span className="tabular-nums">{totalItemWeights.toFixed(2)}%</span>
                   </>
                 ) : null}
               </p>

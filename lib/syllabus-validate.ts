@@ -7,7 +7,7 @@ export function buildWarnings(items: SyllabusParseItem[]): string[] {
   const sum = items.reduce((s, i) => s + i.weightPercent, 0);
   if (items.length > 0 && Math.abs(sum - 100) > SUM_WARN_THRESHOLD) {
     warnings.push(
-      `Weights sum to about ${sum.toFixed(1)}% (expected near 100%). Adjust rows after import if needed.`,
+      `Weights sum to about ${sum.toFixed(2)}% (expected near 100%). Adjust rows after import if needed.`,
     );
   }
   if (items.length === 0) {

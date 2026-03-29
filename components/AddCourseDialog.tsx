@@ -106,7 +106,7 @@ export function AddCourseDialog() {
                     required
                     min={0}
                     max={100}
-                    step={0.1}
+                    step={0.01}
                     value={finalPercent}
                     onChange={(e) => setFinalPercent(e.target.value)}
                     className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-foreground outline-none ring-ring focus:ring-2"
