@@ -1,4 +1,10 @@
 import type { Course, GradeItem } from "./types";
+import type { GradeRow } from "./gpa-scales";
+import {
+  DEFAULT_4_SCALE,
+  percentToGpaPointsFromScale,
+  percentToLetterFromScale,
+} from "./gpa-scales";
 
 /** Weighted average over items with a score; weights renormalized to graded items only. */
 export function courseAveragePercent(items: GradeItem[]): number | null {
@@ -26,40 +32,25 @@ export function getCourseGradePercent(course: Course): number | null {
 }
 
 /** Specific grading scale from percentage (0–100). */
-export function percentToGpaPoints(percent: number): number {
-  if (percent >= 90) return 4.0;
-  if (percent >= 85) return 4.0;
-  if (percent >= 80) return 3.7;
-  if (percent >= 77) return 3.3;
-  if (percent >= 73) return 3.0;
-  if (percent >= 70) return 2.7;
-  if (percent >= 67) return 2.3;
-  if (percent >= 63) return 2.0;
-  if (percent >= 60) return 1.7;
-  if (percent >= 57) return 1.3;
-  if (percent >= 53) return 1.0;
-  if (percent >= 50) return 0.7;
-  return 0.0;
+export function percentToGpaPoints(
+  percent: number,
+  grades: GradeRow[] = DEFAULT_4_SCALE,
+): number {
+  return percentToGpaPointsFromScale(percent, grades);
 }
 
-export function percentToLetterGrade(percent: number): string {
-  if (percent >= 90) return "A+";
-  if (percent >= 85) return "A";
-  if (percent >= 80) return "A-";
-  if (percent >= 77) return "B+";
-  if (percent >= 73) return "B";
-  if (percent >= 70) return "B-";
-  if (percent >= 67) return "C+";
-  if (percent >= 63) return "C";
-  if (percent >= 60) return "C-";
-  if (percent >= 57) return "D+";
-  if (percent >= 53) return "D";
-  if (percent >= 50) return "D-";
-  return "F";
+export function percentToLetterGrade(
+  percent: number,
+  grades: GradeRow[] = DEFAULT_4_SCALE,
+): string {
+  return percentToLetterFromScale(percent, grades);
 }
 
 /** Credit-weighted GPA; courses need a grade (final % or weighted items) and credits > 0. */
-export function gpaFromCourses(courses: Course[]): number | null {
+export function gpaFromCourses(
+  courses: Course[],
+  grades: GradeRow[] = DEFAULT_4_SCALE,
+): number | null {
   let weighted = 0;
   let credits = 0;
 
@@ -67,7 +58,7 @@ export function gpaFromCourses(courses: Course[]): number | null {
     if (c.creditHours <= 0) continue;
     const avg = getCourseGradePercent(c);
     if (avg === null) continue;
-    const pts = percentToGpaPoints(avg);
+    const pts = percentToGpaPoints(avg, grades);
     weighted += pts * c.creditHours;
     credits += c.creditHours;
   }
