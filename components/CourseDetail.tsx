@@ -57,9 +57,9 @@ export function CourseDetail({ courseId }: Props) {
         ← Dashboard
       </Link>
 
-      <div className="mt-6 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex-1 space-y-3">
-          <label className="block text-sm font-medium text-muted-foreground">
+      <div className="mt-6 mb-8 flex flex-col gap-6 border border-border bg-card p-8 shadow-sm sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex-1 space-y-4">
+          <label className="block text-base font-bold text-foreground uppercase">
             Status
             <select
               value={course.status}
@@ -76,25 +76,25 @@ export function CourseDetail({ courseId }: Props) {
               <option value="completed">Completed</option>
             </select>
           </label>
-          <label className="block text-sm font-medium text-muted-foreground">
+          <label className="block text-base font-bold text-foreground uppercase">
             Title
             <input
               value={course.title}
               onChange={(e) => updateCourseMeta(course.id, { title: e.target.value })}
-              className="mt-1 block w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-lg font-semibold text-foreground outline-none ring-ring focus:ring-2"
+              className="mt-1 block w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-2xl font-black text-foreground outline-none ring-ring focus:ring-2 shadow-inner"
             />
           </label>
-          <div className="flex flex-wrap gap-4">
-            <label className="block text-sm font-medium text-muted-foreground">
+          <div className="grid grid-cols-2 gap-6 mt-2">
+            <label className="block text-base font-bold text-foreground uppercase">
               Code
               <input
                 value={course.code}
                 onChange={(e) => updateCourseMeta(course.id, { code: e.target.value })}
-                className="mt-1 block w-40 rounded-md border border-input bg-background px-3 py-2 text-foreground outline-none ring-ring focus:ring-2"
+                className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-foreground outline-none ring-ring focus:ring-2"
                 placeholder="Optional"
               />
             </label>
-            <label className="block text-sm font-medium text-muted-foreground">
+            <label className="block text-base font-bold text-foreground uppercase">
               Credit hours
               <select
                 value={course.creditHours}
@@ -104,7 +104,7 @@ export function CourseDetail({ courseId }: Props) {
                     creditHours: Number.isFinite(n) ? n : 0,
                   });
                 }}
-                className="mt-1 block w-28 rounded-md border border-input bg-background px-3 py-2 tabular-nums text-foreground outline-none ring-ring focus:ring-2"
+                className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 tabular-nums text-foreground outline-none ring-ring focus:ring-2"
               >
                 <option value="0.5">0.5</option>
                 <option value="1">1</option>
@@ -115,7 +115,7 @@ export function CourseDetail({ courseId }: Props) {
         <button
           type="button"
           onClick={deleteCourse}
-          className="shrink-0 rounded-lg border border-destructive/50 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10"
+          className="shrink-0 rounded-lg border border-destructive px-4 py-3 text-base font-black text-destructive hover:bg-destructive hover:text-destructive-foreground shadow-sm"
         >
           Delete course
         </button>
@@ -123,10 +123,10 @@ export function CourseDetail({ courseId }: Props) {
 
       {course.status === "completed" ? (
         <section className="mt-8">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="mb-4 inline-block text-2xl font-black uppercase tracking-widest text-foreground border-b-4 border-primary pb-1">
             Final grade
           </h2>
-          <label className="block max-w-xs text-sm font-medium text-foreground">
+          <label className="block max-w-xs text-base font-bold text-foreground">
             Final percentage
             <input
               type="number"
@@ -143,8 +143,8 @@ export function CourseDetail({ courseId }: Props) {
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 tabular-nums text-foreground outline-none ring-ring focus:ring-2"
             />
           </label>
-          <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4 text-sm">
-            <p className="font-semibold text-foreground">
+          <div className="mt-6 rounded-lg border border-border bg-muted p-6 text-base shadow-sm">
+            <p className="font-black text-2xl text-foreground">
               Course grade:{" "}
               <span className="tabular-nums">
                 {displayPercent === null ? "—" : `${displayPercent.toFixed(2)}%`}
@@ -164,8 +164,8 @@ export function CourseDetail({ courseId }: Props) {
         </section>
       ) : (
         <section className="mt-8">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-2xl font-black uppercase tracking-widest text-foreground inline-block border-b-4 border-primary pb-1">
               Assignments & tests
             </h2>
             <div className="flex flex-wrap items-center gap-2">
@@ -190,8 +190,8 @@ export function CourseDetail({ courseId }: Props) {
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-            <table className="w-full min-w-[36rem] border-collapse text-sm">
+          <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm mt-4 p-4">
+            <table className="w-full min-w-[36rem] border-collapse text-base font-bold mt-2">
               <thead>
                 <tr className="border-b border-border bg-muted/50 text-left text-muted-foreground">
                   <th className="px-3 py-3 font-medium">Type</th>
@@ -217,8 +217,8 @@ export function CourseDetail({ courseId }: Props) {
             </table>
           </div>
 
-          <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4 text-sm">
-            <p className="font-semibold text-foreground">
+          <div className="mt-8 rounded-lg border border-border bg-muted p-6 text-base shadow-sm">
+            <p className="font-black text-2xl text-foreground">
               Course average:{" "}
               <span className="tabular-nums">
                 {avg === null ? "—" : `${avg.toFixed(2)}%`}

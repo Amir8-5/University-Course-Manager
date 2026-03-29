@@ -6,6 +6,9 @@ import type { GradeItemKind } from "@/lib/types";
 import { useCoursesStore } from "@/lib/store";
 import { fetchWithCompression } from "@/lib/http";
 import { Lock } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const PdfPageSelector = dynamic(() => import("./PdfPageSelector").then((m) => m.PdfPageSelector), { ssr: false });
 
 type Props = {
   courseId: string;
@@ -30,6 +33,8 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
   const [warnings, setWarnings] = useState<string[] | undefined>(undefined);
   const [mode, setMode] = useState<"append" | "replace">("append");
   const [maxPages, setMaxPages] = useState<number>(10);
+  const [pdfMode, setPdfMode] = useState<"crop" | "select">("crop");
+  const [selectedPages, setSelectedPages] = useState<number[]>([]);
 
   const reset = () => {
     setPastedText("");
@@ -39,6 +44,8 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
     setWarnings(undefined);
     setMode("append");
     setTab("text");
+    setPdfMode("crop");
+    setSelectedPages([]);
   };
 
   const close = () => {
@@ -72,15 +79,35 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
             const pdfDoc = await PDFDocument.load(arrayBuffer);
             const pageCount = pdfDoc.getPageCount();
 
-            if (maxPages > pageCount) {
-              setLoading(false);
-              setError(`Chosen max pages (${maxPages}) exceeds the total document pages (${pageCount}).`);
-              return;
+            let pagesToCopy: number[] = [];
+
+            if (pdfMode === "crop") {
+              if (maxPages > pageCount) {
+                setLoading(false);
+                setError(`Chosen max pages (${maxPages}) exceeds the total document pages (${pageCount}).`);
+                return;
+              }
+              if (pageCount > maxPages) {
+                pagesToCopy = Array.from({ length: maxPages }, (_, i) => i);
+              }
+            } else if (pdfMode === "select") {
+              if (selectedPages.length === 0) {
+                setLoading(false);
+                setError("Please select at least one page.");
+                return;
+              }
+              if (selectedPages.length > pageCount) {
+                setLoading(false);
+                setError("Invalid page selection.");
+                return;
+              }
+              if (selectedPages.length < pageCount) {
+                pagesToCopy = selectedPages;
+              }
             }
 
-            if (pageCount > maxPages) {
+            if (pagesToCopy.length > 0) {
               const newPdf = await PDFDocument.create();
-              const pagesToCopy = Array.from({ length: maxPages }, (_, i) => i);
               const copiedPages = await newPdf.copyPages(pdfDoc, pagesToCopy);
               copiedPages.forEach((page) => newPdf.addPage(page));
               
@@ -262,27 +289,65 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
                     onChange={(e) => {
                       setFile(e.target.files?.[0] ?? null);
                       setError(null);
+                      setSelectedPages([]);
                     }}
-                    className="mt-1 block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-muted file:px-3 file:py-1.5"
+                    className="mt-2 block w-full cursor-pointer text-base font-bold text-foreground file:mr-4 file:cursor-pointer file:border-3 file:border-solid file:border-foreground file:bg-card file:px-4 file:py-2 file:text-base file:font-black file:uppercase file:text-foreground hover:file:translate-x-[2px] hover:file:translate-y-[2px] file:transition-all hover:file:bg-accent hover:file:text-accent-foreground"
                   />
                 </label>
-                <label className="block text-sm font-medium text-foreground">
-                  Max pages to scan (PDFs only)
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={maxPages}
-                    onChange={(e) => {
-                      setMaxPages(parseInt(e.target.value) || 10);
-                      setError(null);
-                    }}
-                    className="mt-1 block w-24 rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Choose how many pages are uploaded to keep the size small.
-                  </p>
-                </label>
+                {file && file.name.toLowerCase().endsWith(".pdf") && (
+                  <div className="mt-4 space-y-4 rounded-md border border-border p-4 bg-muted/10">
+                    <fieldset className="space-y-2">
+                      <legend className="text-sm font-medium text-foreground mb-2">PDF scanning mode</legend>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          name="pdf-mode"
+                          checked={pdfMode === "crop"}
+                          onChange={() => setPdfMode("crop")}
+                        />
+                        <span className="text-sm">Scan the first few pages</span>
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          name="pdf-mode"
+                          checked={pdfMode === "select"}
+                          onChange={() => setPdfMode("select")}
+                        />
+                        <span className="text-sm">Manually select pages</span>
+                      </label>
+                    </fieldset>
+
+                    {pdfMode === "crop" ? (
+                      <label className="block text-sm font-medium text-foreground pt-3 border-t border-border mt-3">
+                        Max pages to scan
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={maxPages}
+                          onChange={(e) => {
+                            setMaxPages(parseInt(e.target.value) || 10);
+                            setError(null);
+                          }}
+                          className="mt-1 block w-24 rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                        />
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Choose how many pages are uploaded to keep the size small.
+                        </p>
+                      </label>
+                    ) : (
+                      <div className="pt-3 border-t border-border mt-3">
+                        <PdfPageSelector
+                          file={file}
+                          selectedPages={selectedPages}
+                          onChange={setSelectedPages}
+                          maxSelectablePages={15}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

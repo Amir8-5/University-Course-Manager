@@ -30,12 +30,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-full flex flex-col bg-background font-sans antialiased">
-        <Script
-          id="course-manager-theme"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: themeScript }}
-        />
         <Providers>
           <SiteHeader />
           {children}
