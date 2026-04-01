@@ -1,4 +1,6 @@
 import mime from "mime";
+import fs from "fs/promises";
+import path from "path";
 import { NextResponse } from "next/server";
 import { extractCourseworkWithGroq } from "@/lib/groq-syllabus";
 import { parseDocumentToMarkdown } from "@/lib/llamaparse";
@@ -38,6 +40,19 @@ function resolveMime(file: File): string {
   }
   const fromName = file.name ? mime.getType(file.name) : null;
   return fromName ?? "application/octet-stream";
+}
+
+async function logMetrics(llamaTimeMs: number | null, groqTimeMs: number, success: boolean) {
+  try {
+    const logPath = path.join(process.cwd(), "parse-metrics.log");
+    const timestamp = new Date().toISOString();
+    const llamaStr = llamaTimeMs !== null ? `${llamaTimeMs.toFixed(0)}ms` : "N/A (Text)";
+    const groqStr = `${groqTimeMs.toFixed(0)}ms`;
+    const line = `[${timestamp}] LlamaParse: ${llamaStr} | Groq: ${groqStr} | Success: ${success}\n`;
+    await fs.appendFile(logPath, line, "utf-8");
+  } catch (e) {
+    console.error("Failed to write metrics", e);
+  }
 }
 
 export async function POST(request: Request) {
@@ -96,6 +111,7 @@ export async function POST(request: Request) {
   const fileField = form.get("file");
 
   let markdown: string;
+  let llamaTimeMs: number | null = null;
 
   if (fileField instanceof File && fileField.size > 0) {
     if (!process.env.LLAMA_CLOUD_API_KEY) {
@@ -121,8 +137,11 @@ export async function POST(request: Request) {
     }
     const mimeType = resolveMime(fileField);
     const buf = Buffer.from(await fileField.arrayBuffer());
+    let startLlama = 0;
     try {
+      startLlama = performance.now();
       markdown = await parseDocumentToMarkdown(buf, fileField.name || "document", mimeType);
+      llamaTimeMs = performance.now() - startLlama;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "LlamaParse failed.";
       return NextResponse.json({ error: msg }, { status: 502 });
@@ -142,14 +161,21 @@ export async function POST(request: Request) {
     consumeRateLimit(ip, ONE_DAY_MS);
   }
 
+  const startGroq = performance.now();
   try {
     const items = await extractCourseworkWithGroq(markdown);
+    const groqTimeMs = performance.now() - startGroq;
+    await logMetrics(llamaTimeMs, groqTimeMs, true);
+
     const warnings = buildWarnings(items);
     return NextResponse.json({
       items,
       warnings: warnings.length > 0 ? warnings : undefined,
     });
   } catch (e) {
+    const groqTimeMs = performance.now() - startGroq;
+    await logMetrics(llamaTimeMs, groqTimeMs, false);
+
     const msg = e instanceof Error ? e.message : "Failed to extract coursework.";
     return NextResponse.json({ error: msg }, { status: 502 });
   }

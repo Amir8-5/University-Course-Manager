@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -19,6 +19,22 @@ export function PdfPageSelector({ file, selectedPages, onChange, maxSelectablePa
   const [numPages, setNumPages] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedPage, setExpandedPage] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0 && e.deltaX === 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
     setNumPages(numPages);
@@ -80,7 +96,10 @@ export function PdfPageSelector({ file, selectedPages, onChange, maxSelectablePa
       
       {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
       
-      <div className="relative overflow-x-auto whitespace-nowrap pb-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+      <div 
+        ref={scrollRef}
+        className="relative overflow-x-auto whitespace-nowrap pb-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+      >
         <Document
           file={file}
           onLoadSuccess={onDocumentLoadSuccess}
