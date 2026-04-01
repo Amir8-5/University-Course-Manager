@@ -8,6 +8,11 @@ export function checkRateLimit(ip: string, limitMs: number): boolean {
     return false; // Rate limit exceeded
   }
   
+  return true;
+}
+
+export function consumeRateLimit(ip: string, limitMs: number): void {
+  const now = Date.now();
   rateLimitMap.set(ip, now);
   
   // Cleanup old entries periodically
@@ -18,6 +23,4 @@ export function checkRateLimit(ip: string, limitMs: number): boolean {
       }
     }
   }
-  
-  return true;
 }

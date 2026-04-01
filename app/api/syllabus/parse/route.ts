@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { extractCourseworkWithGroq } from "@/lib/groq-syllabus";
 import { parseDocumentToMarkdown } from "@/lib/llamaparse";
 import { buildWarnings } from "@/lib/syllabus-validate";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, consumeRateLimit } from "@/lib/rate-limit";
 import { isCompressed, decompressStream } from "@/lib/compression";
 
 export const maxDuration = 180;
@@ -63,20 +63,32 @@ export async function POST(request: Request) {
 
   let currentRequest = request;
   if (isCompressed(request) && request.body) {
-    const decompressedBody = decompressStream(request.body);
-    currentRequest = new Request(request.url, {
-      method: request.method,
-      headers: request.headers,
-      body: decompressedBody,
-      // @ts-expect-error - duplex is required for stream bodies in some Node environments
-      duplex: "half",
-    });
+    try {
+      // Read all compressed data into memory first
+      const buf = await request.arrayBuffer();
+      
+      // Decompress fully before parsing form data to avoid streaming hangups in Node.js
+      const compressedStream = new Blob([buf]).stream();
+      const decompressedStream = decompressStream(compressedStream);
+      const decompressedResponse = new Response(decompressedStream);
+      const decompressedBuffer = await decompressedResponse.arrayBuffer();
+      
+      currentRequest = new Request(request.url, {
+        method: request.method,
+        headers: request.headers,
+        body: decompressedBuffer,
+      });
+    } catch (e) {
+      console.error("Decompression failed:", e);
+      return NextResponse.json({ error: "Failed to decompress body." }, { status: 400 });
+    }
   }
 
   let form: FormData;
   try {
     form = await currentRequest.formData();
-  } catch {
+  } catch (e) {
+    console.error("Form parse failed:", e);
     return NextResponse.json({ error: "Invalid form data." }, { status: 400 });
   }
 
@@ -124,6 +136,10 @@ export async function POST(request: Request) {
       },
       { status: 400 },
     );
+  }
+
+  if (!isAdmin && ip !== "unknown") {
+    consumeRateLimit(ip, ONE_DAY_MS);
   }
 
   try {
