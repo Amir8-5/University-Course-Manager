@@ -9,9 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.0.8",
     "@llamaindex/llama-cloud": "^1.8.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "@neondatabase/serverless": "^1.0.2",
     "groq-sdk": "^1.1.2",
     "lucide-react": "^1.7.0",
     "mime": "^4.1.0",

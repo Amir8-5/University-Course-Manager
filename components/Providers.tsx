@@ -4,46 +4,38 @@ import { useEffect } from "react";
 import type { Course } from "@/lib/types";
 import { useCoursesStore } from "@/lib/store";
 import { useGpaScaleStore } from "@/lib/gpa-store";
-
-function migrateLegacyCourses(courses: Course[]): Course[] {
-  return courses.map((c) => {
-    const raw = c as Course & {
-      status?: Course["status"];
-      finalPercent?: number | null;
-    };
-    if (raw.status === "completed" || raw.status === "in_progress") {
-      return {
-        ...raw,
-        items: Array.isArray(raw.items) ? raw.items : [],
-        finalPercent:
-          raw.status === "completed" ? (raw.finalPercent ?? null) : null,
-      };
-    }
-    return {
-      ...raw,
-      status: "in_progress" as const,
-      finalPercent: null,
-      items: Array.isArray(raw.items) ? raw.items : [],
-    };
-  });
-}
+import { useAuth } from "@clerk/nextjs";
+import { fetchCoursesAction, fetchGpaScaleAction } from "@/app/actions/db";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    const run = async () => {
-      await Promise.resolve(useCoursesStore.persist.rehydrate());
-      await Promise.resolve(useGpaScaleStore.persist.rehydrate());
-      const courses = useCoursesStore.getState().courses;
-      const migrated = migrateLegacyCourses(courses);
-      const changed =
-        migrated.length !== courses.length ||
-        migrated.some((m, i) => JSON.stringify(m) !== JSON.stringify(courses[i]));
-      if (changed) {
-        useCoursesStore.setState({ courses: migrated });
-      }
-    };
-    void run();
-  }, []);
+  const { isLoaded, isSignedIn } = useAuth();
 
-  return children;
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    if (isSignedIn) {
+      const run = async () => {
+        try {
+          // Fetch courses
+          const remoteCourses = await fetchCoursesAction();
+          useCoursesStore.setState({ courses: remoteCourses });
+
+          // Fetch GPA scale
+          const remoteGpa = await fetchGpaScaleAction();
+          if (remoteGpa) {
+            useGpaScaleStore.setState({ scaleType: remoteGpa.scaleType, grades: remoteGpa.grades });
+          }
+        } catch(e) { 
+          console.error("Failed to hydrate from DB", e);
+        }
+      };
+      run();
+    } else {
+      // Offline fallback: we could clear state when signed out or leave it default
+      useCoursesStore.setState({ courses: [] });
+      useGpaScaleStore.getState().resetToDefaults();
+    }
+  }, [isLoaded, isSignedIn]);
+
+  return <>{children}</>;
 }
