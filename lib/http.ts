@@ -67,6 +67,10 @@ export async function fetchWithCompression(
       body = compressedBlob;
       headers.set("content-encoding", "gzip");
       // Keep original content-type
+    } else if (rawBlob) {
+      // If we don't compress, use the exported Blob. This ensures the 
+      // body strictly aligns with the newly set content-type boundary headers.
+      body = rawBlob;
     }
   }
 
