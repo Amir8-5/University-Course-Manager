@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 
-export const sql = neon(process.env.DATABASE_URL!);
+export const sql = neon(process.env.UNIVERSITY_DATABASE_URL || process.env.DATABASE_URL!);
 
 export async function initDb() {
   await sql`

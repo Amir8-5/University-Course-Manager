@@ -5,7 +5,7 @@ import { auth } from '@clerk/nextjs/server';
 import type { Course, GradeItem } from '@/lib/types';
 import type { GpaScaleType, GradeRow } from '@/lib/gpa-scales';
 
-const sql = neon(process.env.DATABASE_URL!, { fetchOptions: { cache: 'no-store' } });
+const sql = neon(process.env.UNIVERSITY_DATABASE_URL || process.env.DATABASE_URL!, { fetchOptions: { cache: 'no-store' } });
 
 export async function saveGpaScaleAction(scaleType: GpaScaleType, grades: GradeRow[]) {
   const { userId } = await auth();

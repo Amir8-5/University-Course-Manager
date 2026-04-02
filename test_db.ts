@@ -1,7 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 
 async function test() {
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = neon(process.env.UNIVERSITY_DATABASE_URL || process.env.DATABASE_URL!);
   try {
     const res = await sql`ALTER TABLE courses ALTER COLUMN credit_hours TYPE REAL`;
     console.log("SUCCESS ALTERING TABLE", res);
