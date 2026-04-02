@@ -211,3 +211,119 @@ body {
     transition: none !important;
   }
 }
+
+/* ─── Clerk UI overrides ───────────────────────────────────── */
+
+/* Force square corners on all Clerk elements */
+.cl-rootBox *,
+.cl-card,
+.cl-popoverBox *,
+.cl-userButtonPopoverCard,
+.cl-modalContent {
+  border-radius: 0 !important;
+}
+
+/* Clerk card — brutalist border + hard shadow */
+.cl-card {
+  border: 3px solid var(--foreground) !important;
+  box-shadow: 8px 8px 0px 0px var(--foreground) !important;
+  background: var(--card) !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+/* Popover (the UserButton dropdown) */
+.cl-userButtonPopoverCard {
+  border: 3px solid var(--foreground) !important;
+  box-shadow: 8px 8px 0px 0px var(--foreground) !important;
+  background: var(--card) !important;
+}
+
+.cl-userButtonPopoverActionButton {
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: -0.02em !important;
+  border-radius: 0 !important;
+}
+
+.cl-userButtonPopoverActionButton:hover {
+  background: var(--accent) !important;
+  color: var(--foreground) !important;
+}
+
+/* Avatar border */
+.cl-avatarBox {
+  border: 3px solid var(--foreground) !important;
+  box-shadow: 3px 3px 0px 0px var(--foreground) !important;
+  border-radius: 0 !important;
+}
+
+/* Primary buttons */
+.cl-formButtonPrimary {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border: 3px solid var(--foreground) !important;
+  box-shadow: 4px 4px 0px 0px var(--foreground) !important;
+  border-radius: 0 !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: -0.02em !important;
+}
+
+.cl-formButtonPrimary:hover {
+  background: var(--accent) !important;
+  color: var(--foreground) !important;
+  box-shadow: 6px 6px 0px 0px var(--foreground) !important;
+}
+
+/* Inputs in Clerk forms */
+.cl-input {
+  border: 3px solid var(--foreground) !important;
+  border-radius: 0 !important;
+  background: var(--input) !important;
+  font-weight: 800 !important;
+}
+
+.cl-input:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 4px 4px 0px 0px var(--primary) !important;
+  outline: none !important;
+}
+
+/* Social buttons */
+.cl-socialButtonsBlockButton {
+  border: 3px solid var(--foreground) !important;
+  border-radius: 0 !important;
+  box-shadow: 4px 4px 0px 0px var(--foreground) !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+}
+
+.cl-socialButtonsBlockButton:hover {
+  background: var(--accent) !important;
+  color: var(--foreground) !important;
+}
+
+/* Badge */
+.cl-badge {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border: 2px solid var(--foreground) !important;
+  border-radius: 0 !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+}
+
+/* Headings inside Clerk */
+.cl-headerTitle,
+.cl-profileSectionTitle {
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* User preview name */
+.cl-userPreviewMainIdentifier {
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+}
+

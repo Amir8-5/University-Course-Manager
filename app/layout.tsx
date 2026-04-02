@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Providers } from "@/components/Providers";
 import { SiteHeader } from "@/components/SiteHeader";
 import { THEME_STORAGE_KEY } from "@/lib/constants";
@@ -34,14 +35,16 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full flex flex-col bg-background font-sans antialiased">
-        <Providers>
-          <SiteHeader />
-          {children}
-        </Providers>
-        <Analytics />
-        <SpeedInsights />
-      </body>
+      <ClerkProvider>
+        <body className="min-h-full flex flex-col bg-background font-sans antialiased">
+          <Providers>
+            <SiteHeader />
+            {children}
+          </Providers>
+          <Analytics />
+          <SpeedInsights />
+        </body>
+      </ClerkProvider>
     </html>
   );
 }

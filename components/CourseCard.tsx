@@ -35,7 +35,7 @@ export function CourseCard({
   return (
     <Link
       href={`/course/${course.id}`}
-      className="group flex flex-col justify-between border-[3px] border-border bg-card p-6 text-card-foreground shadow-[4px_4px_0px_0px_var(--foreground)] transition-all hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[8px_8px_0px_0px_var(--foreground)] hover:bg-accent"
+      className="group flex min-h-[9rem] flex-col justify-between border-[3px] border-border bg-card p-6 text-card-foreground shadow-[4px_4px_0px_0px_var(--foreground)] transition-all hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[8px_8px_0px_0px_var(--foreground)] hover:bg-accent"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-start gap-2 pr-4">
@@ -47,9 +47,10 @@ export function CourseCard({
           )}
           <div>
             <h2 className="font-semibold text-foreground">{course.title}</h2>
-            {course.code ? (
-              <p className="text-sm text-muted-foreground">{course.code}</p>
-            ) : null}
+            {/* Always render this line so cards without a code keep the same height */}
+            <p className="text-sm text-muted-foreground min-h-[1.25rem]">
+              {course.code || ""}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {course.status === "completed" ? "Completed" : "In progress"}
             </p>
