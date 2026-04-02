@@ -2,7 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
 const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)', '/api/webhooks(.*)'])
 
-export default clerkMiddleware(
+const handler = clerkMiddleware(
   async (auth, request) => {
     if (!isPublicRoute(request)) {
       await auth.protect()
@@ -10,6 +10,9 @@ export default clerkMiddleware(
   },
   { clockSkewInMs: 30_000 }
 )
+
+// Next.js 16+: file must be named proxy.ts and export a named "proxy" function
+export const proxy = handler
 
 export const config = {
   matcher: [
