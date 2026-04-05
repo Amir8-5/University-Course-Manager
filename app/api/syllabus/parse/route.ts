@@ -1,5 +1,6 @@
 import mime from "mime";
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { extractCourseworkWithGroq } from "@/lib/groq-syllabus";
 import { parseDocumentToMarkdown } from "@/lib/llamaparse";
 import { buildWarnings } from "@/lib/syllabus-validate";
@@ -76,11 +77,19 @@ export async function POST(request: Request) {
   const serverAdminToken = process.env.ADMIN_TOKEN;
   const isAdmin = serverAdminToken && adminTokenHeader === serverAdminToken;
 
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-  if (!isAdmin && ip !== "unknown" && !checkRateLimit(ip, ONE_DAY_MS)) {
+  const { userId } = await auth();
+
+  if (!isAdmin && !userId) {
     return NextResponse.json(
-      { error: "Daily limit reached. You can only perform one syllabus parse per day." },
+      { error: "Unauthorized. Please sign in to parse syllabi." },
+      { status: 401 },
+    );
+  }
+
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  if (!isAdmin && userId && !checkRateLimit(userId, ONE_DAY_MS)) {
+    return NextResponse.json(
+      { error: "Daily limit reached. You can only parse two syllabi per day." },
       { status: 429 },
     );
   }
@@ -171,8 +180,8 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isAdmin && ip !== "unknown") {
-    consumeRateLimit(ip, ONE_DAY_MS);
+  if (!isAdmin && userId) {
+    consumeRateLimit(userId, ONE_DAY_MS);
   }
 
   try {
