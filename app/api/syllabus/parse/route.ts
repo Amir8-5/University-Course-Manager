@@ -1,14 +1,36 @@
 import mime from "mime";
-import fs from "fs/promises";
-import path from "path";
 import { NextResponse } from "next/server";
 import { extractCourseworkWithGroq } from "@/lib/groq-syllabus";
 import { parseDocumentToMarkdown } from "@/lib/llamaparse";
 import { buildWarnings } from "@/lib/syllabus-validate";
 import { checkRateLimit, consumeRateLimit } from "@/lib/rate-limit";
 import { isCompressed, decompressStream } from "@/lib/compression";
+import { PDFParse } from "pdf-parse";
 
-export const maxDuration = 180;
+// Configuration constants
+const MAX_ATTEMPTS = 2;
+const LLM_TIMEOUT_MS = 15000; // 15 seconds for LlamaParse (PDF or other docs)
+const GROQ_TIMEOUT_MS = 15000; // 15 seconds for Groq extraction
+
+/** Helper to enforce timeout on a promise */
+function withTimeout<T>(promise: Promise<T>, ms: number, name: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${name} timed out after ${ms}ms`));
+    }, ms);
+    promise
+      .then((val) => {
+        clearTimeout(timer);
+        resolve(val);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+export const maxDuration = 100;
 
 /** Common syllabus uploads supported by LlamaParse (extension-based). */
 const ALLOWED_EXT = new Set([
@@ -27,7 +49,7 @@ const ALLOWED_EXT = new Set([
   ".htm",
 ]);
 
-const MAX_FILE_BYTES = 15 * 1024 * 1024;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 function getExtension(filename: string): string {
   const i = filename.lastIndexOf(".");
@@ -40,19 +62,6 @@ function resolveMime(file: File): string {
   }
   const fromName = file.name ? mime.getType(file.name) : null;
   return fromName ?? "application/octet-stream";
-}
-
-async function logMetrics(llamaTimeMs: number | null, groqTimeMs: number, success: boolean) {
-  try {
-    const logPath = path.join(process.cwd(), "parse-metrics.log");
-    const timestamp = new Date().toISOString();
-    const llamaStr = llamaTimeMs !== null ? `${llamaTimeMs.toFixed(0)}ms` : "N/A (Text)";
-    const groqStr = `${groqTimeMs.toFixed(0)}ms`;
-    const line = `[${timestamp}] LlamaParse: ${llamaStr} | Groq: ${groqStr} | Success: ${success}\n`;
-    await fs.appendFile(logPath, line, "utf-8");
-  } catch (e) {
-    console.error("Failed to write metrics", e);
-  }
 }
 
 export async function POST(request: Request) {
@@ -111,7 +120,6 @@ export async function POST(request: Request) {
   const fileField = form.get("file");
 
   let markdown: string;
-  let llamaTimeMs: number | null = null;
 
   if (fileField instanceof File && fileField.size > 0) {
     if (!process.env.LLAMA_CLOUD_API_KEY) {
@@ -122,7 +130,7 @@ export async function POST(request: Request) {
     }
     if (fileField.size > MAX_FILE_BYTES) {
       return NextResponse.json(
-        { error: "File is too large (max 15 MB)." },
+        { error: "File is too large (max 5 MB)." },
         { status: 400 },
       );
     }
@@ -136,15 +144,21 @@ export async function POST(request: Request) {
       );
     }
     const mimeType = resolveMime(fileField);
-    const buf = Buffer.from(await fileField.arrayBuffer());
-    let startLlama = 0;
+
+    // Turn it into buffer for pdf-parse
+    const buf = new Uint8Array(await fileField.arrayBuffer());
     try {
-      startLlama = performance.now();
-      markdown = await parseDocumentToMarkdown(buf, fileField.name || "document", mimeType);
-      llamaTimeMs = performance.now() - startLlama;
+      if (mimeType === "application/pdf") {
+        const parser = new PDFParse({ data: buf });
+        const data = await parser.getText();
+        markdown = data.text;
+      } else {
+        markdown = await parseDocumentToMarkdown(buf, fileField.name || "document", mimeType);
+      }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "LlamaParse failed.";
-      return NextResponse.json({ error: msg }, { status: 502 });
+      const msg = e instanceof Error ? e.message : "Parse failed. Non specified error";
+      console.error(msg);
+      return NextResponse.json({ error: "Parsing Failed" }, { status: 502 });
     }
   } else if (typeof textField === "string" && textField.trim().length > 0) {
     markdown = textField.trim();
@@ -161,11 +175,21 @@ export async function POST(request: Request) {
     consumeRateLimit(ip, ONE_DAY_MS);
   }
 
-  const startGroq = performance.now();
   try {
-    const items = await extractCourseworkWithGroq(markdown);
-    const groqTimeMs = performance.now() - startGroq;
-    await logMetrics(llamaTimeMs, groqTimeMs, true);
+    let items: any = [];
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        items = await extractCourseworkWithGroq(markdown);
+        break; // success
+      } catch (e) {
+        if (attempt + 1 >= MAX_ATTEMPTS) {
+          throw e;
+        }
+        // exponential backoff
+        const delay = 500 * Math.pow(2, attempt);
+        await new Promise((res) => setTimeout(res, delay));
+      }
+    }
 
     const warnings = buildWarnings(items);
     return NextResponse.json({
@@ -173,10 +197,8 @@ export async function POST(request: Request) {
       warnings: warnings.length > 0 ? warnings : undefined,
     });
   } catch (e) {
-    const groqTimeMs = performance.now() - startGroq;
-    await logMetrics(llamaTimeMs, groqTimeMs, false);
-
     const msg = e instanceof Error ? e.message : "Failed to extract coursework.";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    console.error(msg);
+    return NextResponse.json({ error: "Failed to extract coursework."}, { status: 502 });
   }
 }
