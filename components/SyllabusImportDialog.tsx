@@ -55,7 +55,6 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
 
   const parseSyllabus = async () => {
     const adminToken = localStorage.getItem("admin-token");
-    const lastParseDate = localStorage.getItem("last-syllabus-parse");
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
     
     // We store an array of timestamps in localStorage loosely matching the server logic for better UX
