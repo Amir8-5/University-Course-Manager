@@ -1,4 +1,5 @@
 import mime from "mime";
+import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { extractCourseworkWithGroq } from "@/lib/groq-syllabus";
@@ -12,6 +13,9 @@ import { PDFParse } from "pdf-parse";
 const MAX_ATTEMPTS = 2;
 const LLM_TIMEOUT_MS = 15000; // 15 seconds for LlamaParse (PDF or other docs)
 const GROQ_TIMEOUT_MS = 15000; // 15 seconds for Groq extraction
+
+const groqCache = new Map<string, any>();
+const MAX_CACHE_SIZE = 100;
 
 /** Helper to enforce timeout on a promise */
 function withTimeout<T>(promise: Promise<T>, ms: number, name: string): Promise<T> {
@@ -184,6 +188,17 @@ export async function POST(request: Request) {
     consumeRateLimit(userId, ONE_DAY_MS);
   }
 
+  // Check cache before calling Groq
+  const hash = createHash("sha256").update(markdown).digest("hex");
+  if (groqCache.has(hash)) {
+    const cachedItems = groqCache.get(hash);
+    const warnings = buildWarnings(cachedItems);
+    return NextResponse.json({
+      items: cachedItems,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    });
+  }
+
   try {
     let items: any = [];
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -199,6 +214,13 @@ export async function POST(request: Request) {
         await new Promise((res) => setTimeout(res, delay));
       }
     }
+
+    // Cache the result
+    if (groqCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = groqCache.keys().next().value;
+      if (firstKey) groqCache.delete(firstKey);
+    }
+    groqCache.set(hash, items);
 
     const warnings = buildWarnings(items);
     return NextResponse.json({
