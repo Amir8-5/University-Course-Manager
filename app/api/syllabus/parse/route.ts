@@ -1,3 +1,4 @@
+import "@/lib/polyfills";
 import mime from "mime";
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
@@ -7,7 +8,6 @@ import { parseDocumentToMarkdown } from "@/lib/llamaparse";
 import { buildWarnings } from "@/lib/syllabus-validate";
 import { checkRateLimit, consumeRateLimit } from "@/lib/rate-limit";
 import { isCompressed, decompressStream } from "@/lib/compression";
-import { PDFParse } from "pdf-parse";
 import type { SyllabusParseItem } from "@/lib/syllabus-api";
 
 // Configuration constants
@@ -164,8 +164,10 @@ export async function POST(request: Request) {
     try {
       if (mimeType === "application/pdf") {
         const parsePromise = (async () => {
+          // Await imported so dommatrix polyfill exists
+          const { PDFParse } = await import("pdf-parse");
           const parser = new PDFParse({ data: buf });
-          const data = await parser.getText();
+          const data = await parser.getText();  
           return data.text;
         })();
         markdown = await withTimeout(parsePromise, LLM_TIMEOUT_MS, "PDFParse");
