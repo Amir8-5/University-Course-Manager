@@ -64,7 +64,7 @@ export function GpaChart({ courses, gpa, maxGpa = 4.0, grades }: Props) {
         chartColor,
       };
     });
-  }, [courses]);
+  }, [courses, grades]);
 
   if (contributions.length === 0) {
     return (

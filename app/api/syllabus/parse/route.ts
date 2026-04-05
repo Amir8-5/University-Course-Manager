@@ -1,14 +1,42 @@
 import mime from "mime";
-import fs from "fs/promises";
-import path from "path";
+import { createHash } from "crypto";
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { extractCourseworkWithGroq } from "@/lib/groq-syllabus";
 import { parseDocumentToMarkdown } from "@/lib/llamaparse";
 import { buildWarnings } from "@/lib/syllabus-validate";
 import { checkRateLimit, consumeRateLimit } from "@/lib/rate-limit";
 import { isCompressed, decompressStream } from "@/lib/compression";
+import { PDFParse } from "pdf-parse";
+import type { SyllabusParseItem } from "@/lib/syllabus-api";
 
-export const maxDuration = 180;
+// Configuration constants
+const MAX_ATTEMPTS = 2;
+const LLM_TIMEOUT_MS = 15000; // 15 seconds for LlamaParse (PDF or other docs)
+const GROQ_TIMEOUT_MS = 15000; // 15 seconds for Groq extraction
+
+const groqCache = new Map<string, SyllabusParseItem[]>();
+const MAX_CACHE_SIZE = 100;
+
+/** Helper to enforce timeout on a promise */
+function withTimeout<T>(promise: Promise<T>, ms: number, name: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${name} timed out after ${ms}ms`));
+    }, ms);
+    promise
+      .then((val) => {
+        clearTimeout(timer);
+        resolve(val);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+export const maxDuration = 100;
 
 /** Common syllabus uploads supported by LlamaParse (extension-based). */
 const ALLOWED_EXT = new Set([
@@ -27,7 +55,7 @@ const ALLOWED_EXT = new Set([
   ".htm",
 ]);
 
-const MAX_FILE_BYTES = 15 * 1024 * 1024;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 function getExtension(filename: string): string {
   const i = filename.lastIndexOf(".");
@@ -42,19 +70,6 @@ function resolveMime(file: File): string {
   return fromName ?? "application/octet-stream";
 }
 
-async function logMetrics(llamaTimeMs: number | null, groqTimeMs: number, success: boolean) {
-  try {
-    const logPath = path.join(process.cwd(), "parse-metrics.log");
-    const timestamp = new Date().toISOString();
-    const llamaStr = llamaTimeMs !== null ? `${llamaTimeMs.toFixed(0)}ms` : "N/A (Text)";
-    const groqStr = `${groqTimeMs.toFixed(0)}ms`;
-    const line = `[${timestamp}] LlamaParse: ${llamaStr} | Groq: ${groqStr} | Success: ${success}\n`;
-    await fs.appendFile(logPath, line, "utf-8");
-  } catch (e) {
-    console.error("Failed to write metrics", e);
-  }
-}
-
 export async function POST(request: Request) {
   if (!process.env.GROQ_API_KEY) {
     return NextResponse.json(
@@ -67,11 +82,19 @@ export async function POST(request: Request) {
   const serverAdminToken = process.env.ADMIN_TOKEN;
   const isAdmin = serverAdminToken && adminTokenHeader === serverAdminToken;
 
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-  if (!isAdmin && ip !== "unknown" && !checkRateLimit(ip, ONE_DAY_MS)) {
+  const { userId } = await auth();
+
+  if (!isAdmin && !userId) {
     return NextResponse.json(
-      { error: "Daily limit reached. You can only perform one syllabus parse per day." },
+      { error: "Unauthorized. Please sign in to parse syllabi." },
+      { status: 401 },
+    );
+  }
+
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  if (!isAdmin && userId && !checkRateLimit(userId, ONE_DAY_MS)) {
+    return NextResponse.json(
+      { error: "Daily limit reached. You can only parse two syllabi per day." },
       { status: 429 },
     );
   }
@@ -111,7 +134,6 @@ export async function POST(request: Request) {
   const fileField = form.get("file");
 
   let markdown: string;
-  let llamaTimeMs: number | null = null;
 
   if (fileField instanceof File && fileField.size > 0) {
     if (!process.env.LLAMA_CLOUD_API_KEY) {
@@ -122,7 +144,7 @@ export async function POST(request: Request) {
     }
     if (fileField.size > MAX_FILE_BYTES) {
       return NextResponse.json(
-        { error: "File is too large (max 15 MB)." },
+        { error: "File is too large (max 5 MB)." },
         { status: 400 },
       );
     }
@@ -136,15 +158,28 @@ export async function POST(request: Request) {
       );
     }
     const mimeType = resolveMime(fileField);
-    const buf = Buffer.from(await fileField.arrayBuffer());
-    let startLlama = 0;
+
+    // Turn it into buffer for pdf-parse
+    const buf = new Uint8Array(await fileField.arrayBuffer());
     try {
-      startLlama = performance.now();
-      markdown = await parseDocumentToMarkdown(buf, fileField.name || "document", mimeType);
-      llamaTimeMs = performance.now() - startLlama;
+      if (mimeType === "application/pdf") {
+        const parsePromise = (async () => {
+          const parser = new PDFParse({ data: buf });
+          const data = await parser.getText();
+          return data.text;
+        })();
+        markdown = await withTimeout(parsePromise, LLM_TIMEOUT_MS, "PDFParse");
+      } else {
+        markdown = await withTimeout(
+          parseDocumentToMarkdown(buf, fileField.name || "document", mimeType),
+          LLM_TIMEOUT_MS,
+          "LlamaParse"
+        );
+      }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "LlamaParse failed.";
-      return NextResponse.json({ error: msg }, { status: 502 });
+      const msg = e instanceof Error ? e.message : "Parse failed. Non specified error";
+      console.error(msg);
+      return NextResponse.json({ error: "Parsing Failed" }, { status: 502 });
     }
   } else if (typeof textField === "string" && textField.trim().length > 0) {
     markdown = textField.trim();
@@ -157,15 +192,50 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isAdmin && ip !== "unknown") {
-    consumeRateLimit(ip, ONE_DAY_MS);
+
+
+  // Check cache before calling Groq
+  const hash = createHash("sha256").update(markdown).digest("hex");
+  if (groqCache.has(hash)) {
+    const cachedItems = groqCache.get(hash)!;
+    const warnings = buildWarnings(cachedItems);
+    return NextResponse.json({
+      items: cachedItems,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    });
   }
 
-  const startGroq = performance.now();
+  // Only consume limit if we actually need to hit the LLM (not in cache)
+  if (!isAdmin && userId) {
+    consumeRateLimit(userId, ONE_DAY_MS);
+  }
+
   try {
-    const items = await extractCourseworkWithGroq(markdown);
-    const groqTimeMs = performance.now() - startGroq;
-    await logMetrics(llamaTimeMs, groqTimeMs, true);
+    let items: SyllabusParseItem[] = [];
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        items = await withTimeout(
+          extractCourseworkWithGroq(markdown),
+          GROQ_TIMEOUT_MS,
+          "GroqAPI"
+        );
+        break; // success
+      } catch (e) {
+        if (attempt + 1 >= MAX_ATTEMPTS) {
+          throw e;
+        }
+        // exponential backoff
+        const delay = 500 * Math.pow(2, attempt);
+        await new Promise((res) => setTimeout(res, delay));
+      }
+    }
+
+    // Cache the result
+    if (groqCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = groqCache.keys().next().value;
+      if (firstKey) groqCache.delete(firstKey);
+    }
+    groqCache.set(hash, items);
 
     const warnings = buildWarnings(items);
     return NextResponse.json({
@@ -173,10 +243,8 @@ export async function POST(request: Request) {
       warnings: warnings.length > 0 ? warnings : undefined,
     });
   } catch (e) {
-    const groqTimeMs = performance.now() - startGroq;
-    await logMetrics(llamaTimeMs, groqTimeMs, false);
-
     const msg = e instanceof Error ? e.message : "Failed to extract coursework.";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    console.error(msg);
+    return NextResponse.json({ error: "Failed to extract coursework."}, { status: 502 });
   }
 }

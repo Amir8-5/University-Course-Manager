@@ -4,7 +4,7 @@ import LlamaCloud, { toFile } from "@llamaindex/llama-cloud";
  * Upload a document to LlamaCloud / LlamaParse and return full markdown (or plain text).
  */
 export async function parseDocumentToMarkdown(
-  buffer: Buffer,
+  buffer: Uint8Array,
   filename: string,
   mimeType: string,
 ): Promise<string> {
