@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import type { Course } from "@/lib/types";
+
 import { useCoursesStore } from "@/lib/store";
 import { useGpaScaleStore } from "@/lib/gpa-store";
 import { useAuth } from "@clerk/nextjs";

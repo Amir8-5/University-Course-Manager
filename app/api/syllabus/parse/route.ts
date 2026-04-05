@@ -8,13 +8,14 @@ import { buildWarnings } from "@/lib/syllabus-validate";
 import { checkRateLimit, consumeRateLimit } from "@/lib/rate-limit";
 import { isCompressed, decompressStream } from "@/lib/compression";
 import { PDFParse } from "pdf-parse";
+import type { SyllabusParseItem } from "@/lib/syllabus-api";
 
 // Configuration constants
 const MAX_ATTEMPTS = 2;
 const LLM_TIMEOUT_MS = 15000; // 15 seconds for LlamaParse (PDF or other docs)
 const GROQ_TIMEOUT_MS = 15000; // 15 seconds for Groq extraction
 
-const groqCache = new Map<string, any>();
+const groqCache = new Map<string, SyllabusParseItem[]>();
 const MAX_CACHE_SIZE = 100;
 
 /** Helper to enforce timeout on a promise */
@@ -162,11 +163,18 @@ export async function POST(request: Request) {
     const buf = new Uint8Array(await fileField.arrayBuffer());
     try {
       if (mimeType === "application/pdf") {
-        const parser = new PDFParse({ data: buf });
-        const data = await parser.getText();
-        markdown = data.text;
+        const parsePromise = (async () => {
+          const parser = new PDFParse({ data: buf });
+          const data = await parser.getText();
+          return data.text;
+        })();
+        markdown = await withTimeout(parsePromise, LLM_TIMEOUT_MS, "PDFParse");
       } else {
-        markdown = await parseDocumentToMarkdown(buf, fileField.name || "document", mimeType);
+        markdown = await withTimeout(
+          parseDocumentToMarkdown(buf, fileField.name || "document", mimeType),
+          LLM_TIMEOUT_MS,
+          "LlamaParse"
+        );
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Parse failed. Non specified error";
@@ -184,14 +192,12 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isAdmin && userId) {
-    consumeRateLimit(userId, ONE_DAY_MS);
-  }
+
 
   // Check cache before calling Groq
   const hash = createHash("sha256").update(markdown).digest("hex");
   if (groqCache.has(hash)) {
-    const cachedItems = groqCache.get(hash);
+    const cachedItems = groqCache.get(hash)!;
     const warnings = buildWarnings(cachedItems);
     return NextResponse.json({
       items: cachedItems,
@@ -199,11 +205,20 @@ export async function POST(request: Request) {
     });
   }
 
+  // Only consume limit if we actually need to hit the LLM (not in cache)
+  if (!isAdmin && userId) {
+    consumeRateLimit(userId, ONE_DAY_MS);
+  }
+
   try {
-    let items: any = [];
+    let items: SyllabusParseItem[] = [];
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
-        items = await extractCourseworkWithGroq(markdown);
+        items = await withTimeout(
+          extractCourseworkWithGroq(markdown),
+          GROQ_TIMEOUT_MS,
+          "GroqAPI"
+        );
         break; // success
       } catch (e) {
         if (attempt + 1 >= MAX_ATTEMPTS) {

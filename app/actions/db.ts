@@ -2,7 +2,7 @@
 
 import { neon } from '@neondatabase/serverless';
 import { auth } from '@clerk/nextjs/server';
-import type { Course, GradeItem } from '@/lib/types';
+import type { Course } from '@/lib/types';
 import type { GpaScaleType, GradeRow } from '@/lib/gpa-scales';
 
 const sql = neon(process.env.UNIVERSITY_DATABASE_URL || process.env.DATABASE_URL!, { fetchOptions: { cache: 'no-store' } });

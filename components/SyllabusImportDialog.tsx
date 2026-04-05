@@ -58,9 +58,17 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
     const lastParseDate = localStorage.getItem("last-syllabus-parse");
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
     
-    // Only enforce rate limits if not an admin
-    if (!adminToken && lastParseDate && Date.now() - parseInt(lastParseDate) < ONE_DAY_MS) {
-      setError("Daily limit reached. You can only perform one syllabus parse per day.");
+    // We store an array of timestamps in localStorage loosely matching the server logic for better UX
+    let parseHistory: number[] = [];
+    try {
+      parseHistory = JSON.parse(localStorage.getItem("parse-history") || "[]");
+    } catch { parseHistory = []; }
+    
+    const now = Date.now();
+    const recentParses = parseHistory.filter(t => now - t < ONE_DAY_MS);
+
+    if (!adminToken && recentParses.length >= 2) {
+      setError("Daily limit reached. You can only perform two syllabus parses per day.");
       return;
     }
 
@@ -112,7 +120,7 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
               copiedPages.forEach((page) => newPdf.addPage(page));
               
               const pdfBytes = await newPdf.save();
-              const pdfBlob = new Blob([pdfBytes as any], { type: "application/pdf" });
+              const pdfBlob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
               fileToUpload = new File([pdfBlob], file.name, { type: "application/pdf" });
             }
           } catch (e) {
@@ -159,7 +167,11 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
 
       setPreview(data.items);
       setWarnings(data.warnings);
-      localStorage.setItem("last-syllabus-parse", Date.now().toString());
+      
+      // Update local history for UX
+      const currentHistory = JSON.parse(localStorage.getItem("parse-history") || "[]");
+      currentHistory.push(Date.now());
+      localStorage.setItem("parse-history", JSON.stringify(currentHistory));
     } catch (e) {
       if (e instanceof Error) {
         setError(e.message);
@@ -241,7 +253,7 @@ export function SyllabusImportDialog({ courseId, existingItemCount }: Props) {
               </button>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              
+              Max two syllabus parses per day.
             </p>
 
             <div className="mt-4 inline-flex rounded-lg border border-border bg-muted/30 p-0.5 text-sm">

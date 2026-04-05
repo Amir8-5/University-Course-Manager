@@ -19,7 +19,7 @@ export async function fetchWithCompression(
 ): Promise<Response> {
   const { skipCompression, forceCompression, ...init } = options;
   let body = init.body;
-  let headers = new Headers(init.headers || {});
+  const headers = new Headers(init.headers || {});
 
   // Only compress POST/PUT/PATCH with a body
   const method = (init.method || "GET").toUpperCase();
