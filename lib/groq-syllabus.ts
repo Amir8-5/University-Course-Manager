@@ -16,7 +16,7 @@ export async function extractCourseworkWithGroq(markdown: string): Promise<Sylla
     throw new Error("GROQ_API_KEY is not configured");
   }
 
-  const model = process.env.GROQ_MODEL ?? "llama-3.1-8b-instant";
+  const model = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
 
   const truncationNote = "\n\n[Truncated: later pages removed.]";
   const body =

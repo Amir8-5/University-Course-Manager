@@ -18,7 +18,7 @@ To run this application locally with the syllabus parsing features, you must cre
 ```ini
 # Core LLM extraction
 GROQ_API_KEY=gsk_your_groq_api_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-120b
 
 # PDF and File extraction
 LLAMA_CLOUD_API_KEY=llx-your_llamacloud_api_key_here
