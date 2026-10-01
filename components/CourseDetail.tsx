@@ -12,6 +12,7 @@ import {
 } from "@/lib/grades";
 import { GradeItemRow } from "./GradeItemRow";
 import { SyllabusImportDialog } from "./SyllabusImportDialog";
+import type { EventAttributes } from "ics";
 
 type Props = { courseId: string };
 
@@ -45,6 +46,55 @@ export function CourseDetail({ courseId }: Props) {
   );
   const sumGradedWeights = gradedItems.reduce((s, i) => s + i.weight, 0);
   const totalItemWeights = course.items.reduce((s, i) => s + i.weight, 0);
+
+  const downloadICS = async () => {
+    if (typeof window === "undefined") return;
+
+    if (course.items.length === 0) {
+      alert("No assignments or tests to export.");
+      return;
+    }
+
+    try {
+      const { createEventsAsync } = await import("ics");
+
+      const events: EventAttributes[] = course.items.map((item, index) => {
+        const d = new Date();
+        d.setDate(d.getDate() + index + 1);
+        return {
+          start: [d.getFullYear(), d.getMonth() + 1, d.getDate(), 12, 0],
+          duration: { hours: 1 },
+          title: `${course.code ? course.code + " - " : ""}${course.title}: ${item.name}`,
+          description: `Weight: ${item.weight}%. Current score: ${
+            item.score !== null ? item.score + "%" : "Not graded"
+          }.`,
+        };
+      });
+
+      const result = await createEventsAsync(events);
+
+      if (result.error) {
+        console.error(result.error);
+        alert("Failed to generate calendar file.");
+        return;
+      }
+
+      if (result.value) {
+        const blob = new Blob([result.value], { type: "text/calendar;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${course.title || course.code || "course"}.ics`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("An error occurred while creating the calendar.");
+    }
+  };
 
   const deleteCourse = () => {
     if (typeof window !== "undefined" && window.confirm("Delete this course and all grades?")) {
@@ -114,13 +164,22 @@ export function CourseDetail({ courseId }: Props) {
             </label>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={deleteCourse}
-          className="shrink-0 border-[3px] border-foreground px-5 py-3 text-base font-black uppercase text-destructive transition-all hover:-translate-x-1 hover:-translate-y-1 hover:bg-destructive hover:text-destructive-foreground hover:shadow-[4px_4px_0_0_var(--foreground)]"
-        >
-          Delete course
-        </button>
+        <div className="shrink-0 flex flex-col gap-3 items-stretch sm:items-end">
+          <button
+            type="button"
+            onClick={downloadICS}
+            className="border-[3px] border-foreground px-5 py-3 text-base font-black uppercase text-foreground transition-all hover:-translate-x-1 hover:-translate-y-1 hover:bg-green-400 hover:shadow-[4px_4px_0_0_var(--foreground)]"
+          >
+            Create .ics
+          </button>
+          <button
+            type="button"
+            onClick={deleteCourse}
+            className="border-[3px] border-foreground px-5 py-3 text-base font-black uppercase text-destructive transition-all hover:-translate-x-1 hover:-translate-y-1 hover:bg-destructive hover:text-destructive-foreground hover:shadow-[4px_4px_0_0_var(--foreground)]"
+          >
+            Delete course
+          </button>
+        </div>
       </div>
 
       {course.status === "completed" ? (
