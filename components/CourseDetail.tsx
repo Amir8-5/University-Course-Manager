@@ -12,6 +12,7 @@ import {
 } from "@/lib/grades";
 import { GradeItemRow } from "./GradeItemRow";
 import { SyllabusImportDialog } from "./SyllabusImportDialog";
+import type { EventAttributes } from "ics";
 
 type Props = { courseId: string };
 
@@ -57,11 +58,11 @@ export function CourseDetail({ courseId }: Props) {
     try {
       const { createEventsAsync } = await import("ics");
 
-      const events = course.items.map((item, index) => {
+      const events: EventAttributes[] = course.items.map((item, index) => {
         const d = new Date();
         d.setDate(d.getDate() + index + 1);
         return {
-          start: [d.getFullYear(), d.getMonth() + 1, d.getDate(), 12, 0] as const,
+          start: [d.getFullYear(), d.getMonth() + 1, d.getDate(), 12, 0],
           duration: { hours: 1 },
           title: `${course.code ? course.code + " - " : ""}${course.title}: ${item.name}`,
           description: `Weight: ${item.weight}%. Current score: ${
@@ -70,7 +71,7 @@ export function CourseDetail({ courseId }: Props) {
         };
       });
 
-      const result = await createEventsAsync(events as any);
+      const result = await createEventsAsync(events);
 
       if (result.error) {
         console.error(result.error);
